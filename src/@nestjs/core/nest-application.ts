@@ -13,6 +13,7 @@ export class NestApplication {
   constructor(private readonly module: any) {}
   init() {
     const Constollers = Reflect.getMetadata("controllers", this.module) || [];
+
     for (let Controller of Constollers) {
       // 获取每个Controller的路由前缀
       const prefix = Reflect.getMetadata("prefix", Controller);
