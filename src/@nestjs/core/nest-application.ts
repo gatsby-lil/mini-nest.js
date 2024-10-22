@@ -31,9 +31,16 @@ export class NestApplication {
       switch (key) {
         case "Ip":
           return req.ip;
+        case "Session":
+          return req.session;
+        case "Next":
+          return next;
         case "Req":
         case "Request":
           return data ? req[data] : req;
+        case "Res":
+        case "Response":
+          return data ? res[data] : res;
         case "Query":
           return data ? req.query[data] : req.query;
         case "Body":
@@ -46,6 +53,16 @@ export class NestApplication {
           return null;
       }
     });
+  }
+  getResponseMetaData(controller, methodName) {
+    const paramMetaData =
+      Reflect.getMetadata("params", controller, methodName) || [];
+    return paramMetaData
+      .filter(Boolean)
+      .find(
+        (item) =>
+          item.key === "Res" || item.key === "Response" || item.key === "Next"
+      );
   }
   init() {
     const Constollers = Reflect.getMetadata("controllers", this.module) || [];
@@ -82,7 +99,15 @@ export class NestApplication {
               next
             );
             const result = method.call(Controller, ...methodParams);
-            res.send(result);
+            // 当用户注入@Res、@Response、@Next时, 同时并没有传递passthrough属性, 将用于用户自己响应, 判断是否需要用户自己响应
+            const responseMetaData = this.getResponseMetaData(
+              controllerPrototype,
+              methodName
+            );
+            if (!responseMetaData || responseMetaData?.data?.passthrough) {
+              res.send(result);
+              return result;
+            }
           }
         );
       }

@@ -3,7 +3,6 @@ import "reflect-metadata";
 function createParamDecorator(keyOrFunction: string | Function) {
   return function (data?: any) {
     return function (target: object, properKey: string, paramIndex: number) {
-      console.log(target, properKey, paramIndex);
       const existingParam =
         Reflect.getMetadata("params", target, properKey) || [];
       existingParam[paramIndex] = {
@@ -23,7 +22,9 @@ export const Body = createParamDecorator("Body");
 export const Param = createParamDecorator("Param");
 export const Ip = createParamDecorator("Ip");
 export const Headers = createParamDecorator("Headers");
-
+export const HostParam = createParamDecorator("HostParam");
 export const Session = createParamDecorator("Session");
+
 export const Res = createParamDecorator("Res");
 export const Response = createParamDecorator("Response");
+export const Next = createParamDecorator("Next");

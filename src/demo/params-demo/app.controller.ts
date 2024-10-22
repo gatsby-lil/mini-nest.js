@@ -9,6 +9,10 @@ import {
   Ip,
   Param,
   Headers,
+  Session,
+  Res,
+  Response,
+  Next,
 } from "@nestjs/common";
 
 @Controller("/cats")
@@ -46,5 +50,35 @@ export class AppController {
   updateCats(@Headers() headers, @Headers("key1") key1) {
     console.log(headers);
     return "headers" + key1;
+  }
+
+  @Get("/session")
+  getCatsSession(@Session() session) {
+    console.log(session, "session");
+    return "session";
+  }
+
+  @Get("res")
+  getCatsResponse(@Res() res) {
+    // console.log(res, "res");
+    res.send("Hello i am Res");
+    return "res";
+  }
+
+  @Get("passthrough")
+  getCatsPassthrough(
+    @Response({
+      passthrough: true,
+    })
+    passthrough
+  ) {
+    console.log(passthrough, "passthrough");
+    return "passthrough";
+  }
+
+  @Get("next")
+  getCatsNext(@Next() next) {
+    next("123-next-cats");
+    return "Next";
   }
 }
