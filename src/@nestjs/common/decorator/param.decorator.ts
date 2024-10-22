@@ -1,15 +1,25 @@
 import "reflect-metadata";
 
-function createParamDecorator(keyOrFunction: string | Function) {
+export function createParamDecorator(keyOrFunction: string | Function) {
   return function (data?: any) {
     return function (target: object, properKey: string, paramIndex: number) {
       const existingParam =
         Reflect.getMetadata("params", target, properKey) || [];
-      existingParam[paramIndex] = {
-        data,
-        key: keyOrFunction,
-        paramIndex,
-      };
+      if (keyOrFunction instanceof Function) {
+        existingParam[paramIndex] = {
+          key: "DecoratorFactory",
+          factory: keyOrFunction,
+          data,
+          paramIndex,
+        };
+      } else {
+        existingParam[paramIndex] = {
+          data,
+          key: keyOrFunction,
+          paramIndex,
+        };
+      }
+
       Reflect.defineMetadata("params", existingParam, target, properKey);
     };
   };

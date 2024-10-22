@@ -14,6 +14,7 @@ import {
   Response,
   Next,
 } from "@nestjs/common";
+import { User } from "./user.decorator";
 
 @Controller("/cats")
 export class AppController {
@@ -80,5 +81,11 @@ export class AppController {
   getCatsNext(@Next() next) {
     next("123-next-cats");
     return "Next";
+  }
+
+  @Get("/newuser")
+  getNewUser(@User() user) {
+    console.log(user, "user");
+    return "user" + user;
   }
 }

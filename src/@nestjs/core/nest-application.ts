@@ -26,13 +26,22 @@ export class NestApplication {
   ) {
     const params =
       Reflect.getMetadata("params", controllerPrototype, methodName) || [];
+    const ctx = {
+      switchToHttp: () => ({
+        getRequest: () => req,
+        getResponse: () => res,
+        getNext: () => next,
+      }),
+    };
     return params.map((param) => {
-      const { key, data } = param;
+      const { key, data, factory } = param;
       switch (key) {
         case "Ip":
           return req.ip;
         case "Session":
           return req.session;
+        case "DecoratorFactory":
+          return typeof factory === "function" && factory(data, ctx);
         case "Next":
           return next;
         case "Req":

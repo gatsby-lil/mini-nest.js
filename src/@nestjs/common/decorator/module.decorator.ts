@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 interface ModuleMetaData {
   controllers?: any[];
+  providers?: any[];
 }
 
 export function Module(moduleMetaData: ModuleMetaData) {
