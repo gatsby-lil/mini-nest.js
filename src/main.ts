@@ -1,7 +1,9 @@
 import { NestFactory } from "@nestjs/core";
 // import session from "express-session";
-// import { AppModule } from "./demo/controller-demo/app.module"; 调试controller功能
-import { AppModule } from "./demo/params-demo/app.module"; // 调试参数装饰器的功能
+// 调试controller功能
+// import { AppModule } from "./demo/controller-demo/app.module";
+// 调试参数装饰器的功能、以及http请求的相关方法装饰器
+import { AppModule } from "./demo/params-demo/app.module";
 // import { AppModule } from "./demo/provider-demo/app.module"; // 调试providers
 
 async function bootstrap() {

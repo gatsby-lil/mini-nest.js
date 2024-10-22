@@ -13,6 +13,8 @@ import {
   Res,
   Response,
   Next,
+  Redirect,
+  HttpCode,
 } from "@nestjs/common";
 import { User } from "./user.decorator";
 
@@ -31,6 +33,7 @@ export class AppController {
   }
 
   @Post("/create")
+  @HttpCode(200)
   createCats(@Body("id") identity, @Body() body) {
     console.log(body, "body");
     return identity;
@@ -87,5 +90,18 @@ export class AppController {
   getNewUser(@User() user) {
     console.log(user, "user");
     return "user" + user;
+  }
+
+  @Get("redirect")
+  @Redirect("/cats")
+  handleRedirect() {
+    return "redirect";
+  }
+
+  @Get("redirecturl")
+  handleRedirectUrl() {
+    return {
+      url: "https://www.baidu.com/",
+    };
   }
 }

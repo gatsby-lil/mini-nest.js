@@ -90,6 +90,14 @@ export class NestApplication {
         const method = controllerPrototype[methodName];
         const requestPath = Reflect.getMetadata("path", method);
         const httpMehtod: string = Reflect.getMetadata("method", method);
+        // 重定向的元数据
+        const redirectUrl = Reflect.getMetadata("redirectUrl", method);
+        const redirectStatusCode = Reflect.getMetadata(
+          "redirectStatusCode",
+          method
+        );
+        // 获取请求码
+        const httpCode = Reflect.getMetadata("httpCode", method);
         if (!httpMehtod) {
           continue;
         }
@@ -107,7 +115,22 @@ export class NestApplication {
               res,
               next
             );
-            const result = method.call(Controller, ...methodParams);
+            const result = method.call(controllerPrototype, ...methodParams);
+            // 如果返回的值有url也同样执行重定向
+            if (result && result?.url) {
+              res.redirect(result.statusCode || 302, result.url);
+              return;
+            }
+            if (redirectUrl) {
+              res.redirect(redirectStatusCode || 302, redirectUrl);
+              return;
+            }
+            if (httpCode) {
+              res.status(httpCode);
+            } else if (httpMehtod == "POST") {
+              // nestjs服务201默认返回201状态码
+              res.status(201);
+            }
             // 当用户注入@Res、@Response、@Next时, 同时并没有传递passthrough属性, 将用于用户自己响应, 判断是否需要用户自己响应
             const responseMetaData = this.getResponseMetaData(
               controllerPrototype,
