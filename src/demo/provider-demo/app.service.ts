@@ -1,23 +1,31 @@
 export class LoggerYear {
-  logYear() {
-    console.log(new Date().getFullYear());
+  getYear() {
+    const year = new Date().getFullYear();
+    console.log(year);
+    return year;
   }
 }
 
 export class LoggerMonth {
-  logMonth() {
-    console.log(new Date().getMonth());
+  getMonth() {
+    const month = new Date().getMonth();
+    console.log(month);
+    return month;
   }
 }
 
 export class UseValueLoggerDate {
-  logDay() {
-    console.log(new Date().getDay());
+  getDay() {
+    const day = new Date().getDay();
+    console.log(day);
+    return day;
   }
 }
 
 export class UseFactoryLoggerMessage {
-  log(message?: string) {
-    console.log(message);
+  constructor(private readonly message: string) {}
+  log() {
+    console.log(this.message);
+    return this.message;
   }
 }

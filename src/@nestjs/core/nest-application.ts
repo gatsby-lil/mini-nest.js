@@ -10,13 +10,19 @@ import { Logger } from "./logger";
 
 export class NestApplication {
   private readonly app: Express = express();
+  private readonly providers = new Map();
   constructor(private readonly module: any) {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
+  }
+
+  initProviders() {
+    const providers = Reflect.getMetadata("providers", this.module) || [];
   }
   // 注册express的中间件
   use(middleware) {
     this.app.use(middleware);
   }
+
   resolveParams(
     controllerPrototype,
     methodName,
@@ -63,6 +69,7 @@ export class NestApplication {
       }
     });
   }
+
   getResponseMetaData(controller, methodName) {
     const paramMetaData =
       Reflect.getMetadata("params", controller, methodName) || [];
@@ -73,6 +80,7 @@ export class NestApplication {
           item.key === "Res" || item.key === "Response" || item.key === "Next"
       );
   }
+
   init() {
     const Constollers = Reflect.getMetadata("controllers", this.module) || [];
 
@@ -145,6 +153,7 @@ export class NestApplication {
       }
     }
   }
+
   async listen(port: number) {
     await this.init();
     this.app.listen(port, () => {

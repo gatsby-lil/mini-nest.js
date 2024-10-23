@@ -12,5 +12,6 @@ export function Module(moduleMetaData: ModuleMetaData) {
       moduleMetaData.controllers || [],
       target
     );
+    Reflect.defineMetadata("providers", moduleMetaData.providers || [], target);
   };
 }
