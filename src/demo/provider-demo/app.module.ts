@@ -16,17 +16,17 @@ import {
       useClass: LoggerMonth,
     },
     {
-      proivde: "UseValueLoggerDate",
+      provide: "UseValueLoggerDate",
       useValue: new UseValueLoggerDate(),
-    },
-    {
-      provide: "UseFactoryLoggerMessage",
-      inject: ["Happy New Year"],
-      useFactory: (message) => new UseFactoryLoggerMessage(message),
     },
     {
       provide: "flag",
       useValue: "flag: develop a website",
+    },
+    {
+      provide: "UseFactoryLoggerMessage",
+      inject: ["UseValueLoggerDate", "Happy New Year"],
+      useFactory: (u, message) => new UseFactoryLoggerMessage(u, message),
     },
   ],
 })

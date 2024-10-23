@@ -1,16 +1,14 @@
 export class LoggerYear {
   getYear() {
     const year = new Date().getFullYear();
-    console.log(year);
-    return year;
+    return year + "";
   }
 }
 
 export class LoggerMonth {
   getMonth() {
-    const month = new Date().getMonth();
-    console.log(month);
-    return month;
+    const month = new Date().getMonth() + 1;
+    return month + "";
   }
 }
 
@@ -18,14 +16,14 @@ export class UseValueLoggerDate {
   getDay() {
     const day = new Date().getDay();
     console.log(day);
-    return day;
+    return day + "";
   }
 }
 
 export class UseFactoryLoggerMessage {
-  constructor(private readonly message: string) {}
+  constructor(private InjectProvide, private readonly message: string) {}
   log() {
-    console.log(this.message);
+    console.log(this.InjectProvide);
     return this.message;
   }
 }

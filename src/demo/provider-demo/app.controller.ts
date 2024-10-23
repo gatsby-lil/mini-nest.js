@@ -23,6 +23,7 @@ export class AppController {
 
   @Get("/year")
   getYear() {
+    console.log(this.LoggerYear, "YYY");
     return this.LoggerYear.getYear();
   }
 
