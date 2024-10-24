@@ -3,4 +3,7 @@ export class CommonService {
     const valueType = typeof value;
     return `value is ${valueType}`;
   }
+  reversalArray(value: any[]) {
+    return value.reverse().join("@");
+  }
 }

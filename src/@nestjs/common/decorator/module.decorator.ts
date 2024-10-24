@@ -13,7 +13,7 @@ interface ModuleMetaData {
  *
  *
  */
-export function Module(moduleMetaData: ModuleMetaData) {
+export function Module(moduleMetaData: ModuleMetaData): ClassDecorator {
   return function (target: Function) {
     Reflect.defineMetadata(
       "controllers",
@@ -24,5 +24,11 @@ export function Module(moduleMetaData: ModuleMetaData) {
     Reflect.defineMetadata("exports", moduleMetaData.exports || [], target);
     Reflect.defineMetadata("imports", moduleMetaData.imports || [], target);
     Reflect.defineMetadata("isModule", true, target);
+  };
+}
+
+export function Global(): ClassDecorator {
+  return function (target: Function) {
+    Reflect.defineMetadata("global", true, target);
   };
 }

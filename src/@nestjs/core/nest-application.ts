@@ -91,6 +91,7 @@ export class NestApplication {
   // 解析类依赖
   private resolveDependencies(Clazz) {
     const injectedTokens = Reflect.getMetadata(INJECTED_TOKENS, Clazz) || [];
+    // ! 类被装饰器装饰过才能生效
     const constructorParams =
       Reflect.getMetadata(DESIGN_PARAMTYPES, Clazz) || [];
     return constructorParams.map((item, index) => {

@@ -1,6 +1,7 @@
 import { Controller, Get, Inject } from "@nestjs/common";
 import { LoggerYear, LoggerMonth } from "./date.service";
 import { CommonService } from "./common.service";
+import { OtherService } from "./other.service";
 
 @Controller()
 /**
@@ -13,6 +14,7 @@ export class AppController {
     private readonly LoggerYear: LoggerYear,
     private readonly LoggerMonth: LoggerMonth,
     private readonly CommonService: CommonService,
+    private readonly OtherSive: OtherService,
     @Inject("UseValueLoggerDate") private readonly loggerDate,
     @Inject("UseFactoryLoggerMessage") private readonly loggerMessage,
     @Inject("flag") private readonly flag: string
@@ -22,7 +24,6 @@ export class AppController {
   getFlag() {
     return this.flag;
   }
-
   @Get("/year")
   getYear() {
     return this.LoggerYear.getYear();
@@ -37,14 +38,17 @@ export class AppController {
   getDay() {
     return this.loggerDate.getDay();
   }
-
   @Get("/message")
   getMessage() {
     return this.loggerMessage.log();
   }
-
   @Get("/string")
   getString() {
     return this.CommonService.showValueType(777);
+  }
+
+  @Get("/other")
+  getOther() {
+    return this.OtherSive.callReversal();
   }
 }
