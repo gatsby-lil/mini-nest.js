@@ -22,15 +22,30 @@ export class NestApplication {
     const imports = Reflect.getMetadata("imports", this.module) || [];
     // 遍历所有的导入模块
     for (let importedModule of imports) {
-      // 获取导入模块的提供者
-      const importModuleProviders =
-        Reflect.getMetadata("providers", importedModule) || [];
-      // 遍历添加每个提供者注册到全局
-      importModuleProviders.forEach((provider) => this.addProvider(provider));
+      this.registerProviderByModule(importedModule);
     }
     // 获取跟模块的提供者注册到全局
     const moduleProviders = Reflect.getMetadata("providers", this.module) || [];
     moduleProviders.forEach((provider) => this.addProvider(provider));
+  }
+
+  private registerProviderByModule(module) {
+    const providers = Reflect.getMetadata("providers", module);
+    const moduleExports = Reflect.getMetadata("exports", module);
+    for (const exportToken of moduleExports) {
+      // 导出的是一个模块, 则递归处理
+      if (this.isModule(exportToken)) {
+        this.registerProviderByModule(exportToken);
+      } else {
+        // * 每个模块exports应该是providers的子集, 即exports中的每一项都在providers中, 则进行注册
+        const provider = providers.find(
+          (p) => p === exportToken || p.provide === p
+        );
+        if (provider) {
+          this.addProvider(provider);
+        }
+      }
+    }
   }
 
   addProvider(provider) {
@@ -58,6 +73,15 @@ export class NestApplication {
   // 注册express的中间件
   use(middleware) {
     this.app.use(middleware);
+  }
+
+  // 判断是否是模块
+  private isModule(injectToken) {
+    return (
+      injectToken &&
+      injectToken instanceof Function &&
+      Reflect.getMetadata("isModule", injectToken)
+    );
   }
 
   // 根据token获取依赖

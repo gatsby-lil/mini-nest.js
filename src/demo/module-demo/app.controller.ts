@@ -1,5 +1,6 @@
 import { Controller, Get, Inject } from "@nestjs/common";
 import { LoggerYear, LoggerMonth } from "./date.service";
+import { CommonService } from "./common.service";
 
 @Controller()
 /**
@@ -11,6 +12,7 @@ export class AppController {
   constructor(
     private readonly LoggerYear: LoggerYear,
     private readonly LoggerMonth: LoggerMonth,
+    private readonly CommonService: CommonService,
     @Inject("UseValueLoggerDate") private readonly loggerDate,
     @Inject("UseFactoryLoggerMessage") private readonly loggerMessage,
     @Inject("flag") private readonly flag: string
@@ -39,5 +41,10 @@ export class AppController {
   @Get("/message")
   getMessage() {
     return this.loggerMessage.log();
+  }
+
+  @Get("/string")
+  getString() {
+    return this.CommonService.showValueType(777);
   }
 }

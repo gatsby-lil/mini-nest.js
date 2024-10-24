@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
-import { DateModule } from "./date.module";
 import { AppController } from "./app.controller";
+import { CoreModule } from "./core.module";
 
 @Module({
-  imports: [DateModule],
+  imports: [CoreModule],
   controllers: [AppController],
 })
 export class AppModule {}
