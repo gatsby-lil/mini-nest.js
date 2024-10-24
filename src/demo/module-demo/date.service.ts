@@ -20,7 +20,10 @@ export class UseValueLoggerDate {
 }
 
 export class UseFactoryLoggerMessage {
-  constructor(private InjectProvide, private readonly message: string) {}
+  constructor(
+    private readonly InjectProvide,
+    private readonly message: string
+  ) {}
   log() {
     console.log(this.InjectProvide);
     return this.message;

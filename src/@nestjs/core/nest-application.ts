@@ -18,27 +18,40 @@ export class NestApplication {
   }
 
   private initProviders() {
-    const providers = Reflect.getMetadata("providers", this.module) || [];
-    for (let provider of providers) {
-      if (provider.provide) {
-        if (provider?.useClass) {
-          // 需要实例化, 并注入依赖
-          const dependencies = this.resolveDependencies(provider.useClass);
-          const instance = new provider.useClass(...dependencies);
-          this.providersMap.set(provider.provide, instance);
-        } else if (provider?.useValue) {
-          this.providersMap.set(provider.provide, provider.useValue);
-        } else if (provider?.useFactory) {
-          // 解析依赖
-          const inject = provider.inject || [];
-          const injectedValues = inject.map(this.getProviderByToken.bind(this));
-          const value = provider.useFactory(...injectedValues);
-          this.providersMap.set(provider.provide, value);
-        }
-      } else {
-        const dependencies = this.resolveDependencies(provider);
-        this.providersMap.set(provider, new provider(...dependencies));
+    // 获取模块导入的元数据
+    const imports = Reflect.getMetadata("imports", this.module) || [];
+    // 遍历所有的导入模块
+    for (let importedModule of imports) {
+      // 获取导入模块的提供者
+      const importModuleProviders =
+        Reflect.getMetadata("providers", importedModule) || [];
+      // 遍历添加每个提供者注册到全局
+      importModuleProviders.forEach((provider) => this.addProvider(provider));
+    }
+    // 获取跟模块的提供者注册到全局
+    const moduleProviders = Reflect.getMetadata("providers", this.module) || [];
+    moduleProviders.forEach((provider) => this.addProvider(provider));
+  }
+
+  addProvider(provider) {
+    if (provider.provide) {
+      if (provider?.useClass) {
+        // 需要实例化, 并注入依赖
+        const dependencies = this.resolveDependencies(provider.useClass);
+        const instance = new provider.useClass(...dependencies);
+        this.providersMap.set(provider.provide, instance);
+      } else if (provider?.useValue) {
+        this.providersMap.set(provider.provide, provider.useValue);
+      } else if (provider?.useFactory) {
+        // 解析依赖
+        const inject = provider.inject || [];
+        const injectedValues = inject.map(this.getProviderByToken.bind(this));
+        const value = provider.useFactory(...injectedValues);
+        this.providersMap.set(provider.provide, value);
       }
+    } else {
+      const dependencies = this.resolveDependencies(provider);
+      this.providersMap.set(provider, new provider(...dependencies));
     }
   }
 
