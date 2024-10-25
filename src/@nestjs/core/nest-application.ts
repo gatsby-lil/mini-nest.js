@@ -8,6 +8,7 @@ import express, {
 } from "express";
 import { Logger } from "./logger";
 import { DESIGN_PARAMTYPES, INJECTED_TOKENS } from "@nestjs/constant";
+import { defineModule } from "@nestjs/common";
 
 export class NestApplication {
   private readonly app: Express = express();
@@ -21,12 +22,41 @@ export class NestApplication {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
   }
 
-  private initProviders() {
+  private async initProviders() {
     // 获取模块导入的元数据
     const imports = Reflect.getMetadata("imports", this.module) || [];
     // 遍历所有的导入模块
-    for (let importedModule of imports) {
-      this.registerProviderByModule(importedModule, this.module);
+    for (let importModule of imports) {
+      let importedModule = importModule;
+      // 判断是否是一个Promise, 动态模块forRoot方法执行有可能返回的是一个Promise
+      if (importedModule instanceof Promise) {
+        importedModule = await importedModule;
+      }
+      // 判断是否是一个动态模块
+      if (importModule.module) {
+        // 获取动态模块返回的模块定义
+        const {
+          module,
+          exports = [],
+          controllers = [],
+          providers = [],
+        } = importModule;
+        // 把老的和新的providers、exports、controllers进行合并
+        const oldControllers = Reflect.getMetadata("controllers", module) || [];
+        const newControllers = [...oldControllers, ...controllers];
+        const oldProviders = Reflect.getMetadata("providers", module) || [];
+        const newProviders = [...oldProviders, ...providers];
+        const oldExports = Reflect.getMetadata("exports", module) || [];
+        const newExports = [...oldExports, ...exports];
+        defineModule(newControllers, module);
+        defineModule(newProviders, module);
+        Reflect.defineMetadata("controllers", newControllers, module);
+        Reflect.defineMetadata("providers", newProviders, module);
+        Reflect.defineMetadata("exports", newExports, module);
+        this.registerProviderByModule(module, this.module);
+      } else {
+        this.registerProviderByModule(importedModule, this.module);
+      }
     }
     // 获取跟模块的提供者注册到全局
     const moduleProviders = Reflect.getMetadata("providers", this.module) || [];
@@ -52,7 +82,7 @@ export class NestApplication {
       } else {
         // * 每个模块exports应该是providers的子集, 即exports中的每一项都在providers中, 则进行注册
         const provider = providers.find(
-          (p) => p === exportToken || p.provide === p
+          (p) => p === exportToken || p.provide === exportToken
         );
         if (provider) {
           [module, ...parentModules].forEach((module) => {
@@ -70,6 +100,14 @@ export class NestApplication {
     // 根据Module进行提供者隔离
     if (!global) {
       this.moduleProviders.set(module, providers);
+    }
+    // 需要注册的token, 避免重复注入
+    const injectToken = provider?.provide || provider;
+    if (this.providersInstanceMap.has(injectToken)) {
+      if (!providers.has(injectToken)) {
+        providers.add(injectToken);
+      }
+      return;
     }
     if (provider.provide) {
       if (provider?.useClass) {

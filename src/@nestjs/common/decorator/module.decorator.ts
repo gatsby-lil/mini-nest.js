@@ -6,6 +6,11 @@ interface ModuleMetaData {
   imports?: any[];
   exports?: any[];
 }
+
+// 动态模块需要返回的类型
+export interface DynamicModule extends ModuleMetaData {
+  module: Function;
+}
 /**
  * 1. 模块是用 @Module() 装饰器注释的类。@Module() 装饰器提供的元数据被 Nest 用来组织应用程序结构。
  * 2. 在 Nest 中，模块默认是单例的，因此您可以轻松地在多个模块之间共享任何提供者的同一个实例

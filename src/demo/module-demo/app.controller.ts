@@ -2,6 +2,7 @@ import { Controller, Get, Inject } from "@nestjs/common";
 import { LoggerYear, LoggerMonth } from "./date.service";
 import { CommonService } from "./common.service";
 import { OtherService } from "./other.service";
+import { AppService } from "./app.service";
 
 @Controller()
 /**
@@ -15,6 +16,7 @@ export class AppController {
     private readonly LoggerMonth: LoggerMonth,
     private readonly CommonService: CommonService,
     private readonly OtherSive: OtherService,
+    private readonly appService: AppService,
     @Inject("UseValueLoggerDate") private readonly loggerDate,
     @Inject("UseFactoryLoggerMessage") private readonly loggerMessage,
     @Inject("flag") private readonly flag: string
@@ -50,5 +52,12 @@ export class AppController {
   @Get("/other")
   getOther() {
     return this.OtherSive.callReversal();
+  }
+
+  @Get("/config")
+  getConfig() {
+    const databaseConfig = this.appService.getDataBaseConfig();
+    console.log(databaseConfig, "databaseConfig");
+    return databaseConfig?.databaseKey;
   }
 }
