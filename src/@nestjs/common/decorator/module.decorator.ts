@@ -24,7 +24,20 @@ export function Module(moduleMetaData: ModuleMetaData): ClassDecorator {
     Reflect.defineMetadata("exports", moduleMetaData.exports || [], target);
     Reflect.defineMetadata("imports", moduleMetaData.imports || [], target);
     Reflect.defineMetadata("isModule", true, target);
+    defineModule(moduleMetaData.controllers, target);
+    defineModule(moduleMetaData.providers, target);
   };
+}
+
+export function defineModule(providers = [], module) {
+  providers?.forEach((item) => {
+    // 这两种情况是有可能进行依赖注入的, 而依赖的注入又是根据模块来进行隔离的, 所以需要给他们添加元数据模块，方便初始化的时候依赖注入
+    if (item instanceof Function) {
+      Reflect.defineMetadata("module", module, item);
+    } else if (item?.useClass instanceof Function) {
+      Reflect.defineMetadata("module", module, item.useClass);
+    }
+  });
 }
 
 export function Global(): ClassDecorator {
