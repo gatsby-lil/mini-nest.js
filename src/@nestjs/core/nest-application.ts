@@ -9,7 +9,7 @@ import express, {
 import { Logger } from "./logger";
 import { DESIGN_PARAMTYPES, INJECTED_TOKENS } from "@nestjs/constant";
 import { defineModule } from "@nestjs/common";
-import { RequestMethod } from "@nestjs/types";
+import { ExceptionFilter, RequestMethod } from "@nestjs/types";
 import { GlobalHttpExecptionFilter } from "@nestjs/common/exceptions-filters/httpExceptionFilter";
 
 export class NestApplication {
@@ -28,23 +28,45 @@ export class NestApplication {
   private readonly defaultGlobalHttpExceptionFilter =
     new GlobalHttpExecptionFilter();
   // 存放对应的异常过滤器
-  private readonly globalHttpExceptionFilters = [];
+  private readonly globalHttpExceptionFilters: ExceptionFilter[] = [];
 
   constructor(private readonly module: any) {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
   }
 
   private async initGlobalFilters() {}
-  private async callExceptionFilters(error: any, host) {
-    const allFilters = [this.defaultGlobalHttpExceptionFilter];
+
+  private getFilterInstance(filter) {
+    if (filter instanceof Function) {
+      const dependencies = this.resolveDependencies(filter);
+      return new filter(...dependencies);
+    }
+    return filter;
+  }
+
+  private async callExceptionFilters(
+    error: any,
+    host,
+    controllerFilters,
+    methodFilters
+  ) {
+    const allFilters = [
+      ...methodFilters,
+      ...controllerFilters,
+      ...this.globalHttpExceptionFilters,
+      this.defaultGlobalHttpExceptionFilter,
+    ];
     for (const filters of allFilters) {
+      const filterInstance = this.getFilterInstance(filters);
       const target = filters.constructor;
       const exceptions = Reflect.getMetadata("catch", target) || [];
+      console.log(target, exceptions, "target");
       if (
         exceptions.length === 0 ||
         exceptions.some((exception) => error instanceof exception)
       ) {
-        filters.catch(error, host);
+        console.log(filterInstance, "filterInstance");
+        filterInstance.catch(error, host);
         break;
       }
     }
@@ -372,7 +394,11 @@ export class NestApplication {
         Object.getOwnPropertyNames(controllerPrototype).filter(
           (n) => n != "constructor"
         ) || [];
-
+      // 绑定在控制器上的过滤器
+      const controllerFilters =
+        Reflect.getMetadata("filters", Controller) || [];
+      // 关联到模块可以注入依赖
+      defineModule(controllerFilters, this.module);
       for (let methodName of prototypeMethods) {
         const method = controllerPrototype[methodName];
         const requestPath = Reflect.getMetadata("path", method);
@@ -385,6 +411,10 @@ export class NestApplication {
         );
         // 获取请求码
         const httpCode = Reflect.getMetadata("httpCode", method);
+        // 保存在方法上的过滤器
+        const methodFilters = Reflect.getMetadata("filters", method) || [];
+        // 关联到模块可以注入依赖
+        defineModule(methodFilters, this.module);
         if (!httpMehtod) {
           continue;
         }
@@ -436,7 +466,12 @@ export class NestApplication {
                 return result;
               }
             } catch (error) {
-              this.callExceptionFilters(error, host);
+              this.callExceptionFilters(
+                error,
+                host,
+                controllerFilters,
+                methodFilters
+              );
             }
           }
         );
