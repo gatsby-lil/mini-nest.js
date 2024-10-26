@@ -10,6 +10,7 @@ import { Logger } from "./logger";
 import { DESIGN_PARAMTYPES, INJECTED_TOKENS } from "@nestjs/constant";
 import { defineModule } from "@nestjs/common";
 import { RequestMethod } from "@nestjs/types";
+import { GlobalHttpExecptionFilter } from "@nestjs/common/exceptions-filters/httpExceptionFilter";
 
 export class NestApplication {
   private readonly app: Express = express();
@@ -23,13 +24,35 @@ export class NestApplication {
   private readonly middlewares = [];
   // 记录所有要排除的路径
   private readonly excludedRoutes = [];
+  // 添加一个全局异常过滤器
+  private readonly defaultGlobalHttpExceptionFilter =
+    new GlobalHttpExecptionFilter();
+  // 存放对应的异常过滤器
+  private readonly globalHttpExceptionFilters = [];
+
   constructor(private readonly module: any) {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
   }
 
+  private async initGlobalFilters() {}
+  private async callExceptionFilters(error: any, host) {
+    const allFilters = [this.defaultGlobalHttpExceptionFilter];
+    for (const filters of allFilters) {
+      const target = filters.constructor;
+      const exceptions = Reflect.getMetadata("catch", target) || [];
+      if (
+        exceptions.length === 0 ||
+        exceptions.some((exception) => error instanceof exception)
+      ) {
+        filters.catch(error, host);
+        break;
+      }
+    }
+  }
+
   private async initMiddlewares() {
     // 调用模块的中配置中间的的方法，MiddlewareConsumer就是当前的NestApplication的实例
-    this.module?.prototype?.configure(this);
+    this.module?.prototype?.configure?.(this);
   }
 
   apply(...middlewares: any[]): this {
@@ -371,38 +394,49 @@ export class NestApplication {
         this.app[httpMehtod.toLowerCase()](
           routerPath,
           (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-            // 解析路由方法的参数
-            const methodParams = this.resolveParams(
-              controllerPrototype,
-              methodName,
-              req,
-              res,
-              next
-            );
-            const result = method.call(controllerInstance, ...methodParams);
-            // 如果返回的值有url也同样执行重定向
-            if (result && result?.url) {
-              res.redirect(result.statusCode || 302, result.url);
-              return;
-            }
-            if (redirectUrl) {
-              res.redirect(redirectStatusCode || 302, redirectUrl);
-              return;
-            }
-            if (httpCode) {
-              res.status(httpCode);
-            } else if (httpMehtod == "POST") {
-              // nestjs服务201默认返回201状态码
-              res.status(201);
-            }
-            // 当用户注入@Res、@Response、@Next时, 同时并没有传递passthrough属性, 将用于用户自己响应, 判断是否需要用户自己响应
-            const responseMetaData = this.getResponseMetaData(
-              controllerPrototype,
-              methodName
-            );
-            if (!responseMetaData || responseMetaData?.data?.passthrough) {
-              res.send(result);
-              return result;
+            const host = {
+              switchToHttp: () => ({
+                getRequest: () => req,
+                getResponse: () => res,
+                getNext: () => next,
+              }),
+            };
+            try {
+              // 解析路由方法的参数
+              const methodParams = this.resolveParams(
+                controllerPrototype,
+                methodName,
+                req,
+                res,
+                next
+              );
+              const result = method.call(controllerInstance, ...methodParams);
+              // 如果返回的值有url也同样执行重定向
+              if (result && result?.url) {
+                res.redirect(result.statusCode || 302, result.url);
+                return;
+              }
+              if (redirectUrl) {
+                res.redirect(redirectStatusCode || 302, redirectUrl);
+                return;
+              }
+              if (httpCode) {
+                res.status(httpCode);
+              } else if (httpMehtod == "POST") {
+                // nestjs服务201默认返回201状态码
+                res.status(201);
+              }
+              // 当用户注入@Res、@Response、@Next时, 同时并没有传递passthrough属性, 将用于用户自己响应, 判断是否需要用户自己响应
+              const responseMetaData = this.getResponseMetaData(
+                controllerPrototype,
+                methodName
+              );
+              if (!responseMetaData || responseMetaData?.data?.passthrough) {
+                res.send(result);
+                return result;
+              }
+            } catch (error) {
+              this.callExceptionFilters(error, host);
             }
           }
         );
@@ -415,6 +449,8 @@ export class NestApplication {
     await this.initProviders();
     // 初始化中间件
     await this.initMiddlewares();
+    // 初始化全局过滤器
+    await this.initGlobalFilters();
     // 初始化controller路由
     await this.init();
     this.app.listen(port, () => {
