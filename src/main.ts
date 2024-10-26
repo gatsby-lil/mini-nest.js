@@ -6,11 +6,13 @@ import { NestFactory } from "@nestjs/core";
 // 调试Providers
 // import { AppModule } from "./demo/provider-demo/app.module";
 // 调试Module
-import { AppModule } from "./demo/module-demo/app.module";
+// import { AppModule } from "./demo/module-demo/app.module";
+// 调试midleware
+import { AppModule } from "./demo/middleware-demo/app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.listen(3001);
+  app.listen(3000);
 }
 
 bootstrap();
