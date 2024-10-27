@@ -12,8 +12,8 @@ import {
   DESIGN_PARAMTYPES,
   INJECTED_TOKENS,
 } from "@nestjs/constant";
-import { defineModule } from "@nestjs/common";
-import { ExceptionFilter, RequestMethod } from "@nestjs/types";
+import { defineModule, Next } from "@nestjs/common";
+import { ArgumentsHost, ExceptionFilter, RequestMethod } from "@nestjs/types";
 import { GlobalHttpExecptionFilter } from "@nestjs/common/exceptions-filters/httpExceptionFilter";
 
 export class NestApplication {
@@ -36,6 +36,14 @@ export class NestApplication {
 
   constructor(private readonly module: any) {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
+  }
+
+  private getPipeInstance(pipe) {
+    if (typeof pipe === "function") {
+      const dependencies = this.resolveDependencies(pipe);
+      return new pipe(...dependencies);
+    }
+    return pipe;
   }
 
   private async initGlobalFilters() {
@@ -264,6 +272,7 @@ export class NestApplication {
         }
       }
     }
+    this.initController(module);
   }
 
   addProvider(provider, module, global = false) {
@@ -351,46 +360,59 @@ export class NestApplication {
     methodName,
     req: ExpressRequest,
     res: ExpressResponse,
-    next: NextFunction
+    next: NextFunction,
+    host: ArgumentsHost
   ) {
     const params =
       Reflect.getMetadata("params", controllerPrototype, methodName) || [];
-    const ctx = {
-      switchToHttp: () => ({
-        getRequest: () => req,
-        getResponse: () => res,
-        getNext: () => next,
-      }),
-    };
-    return params.map((param) => {
-      const { key, data, factory } = param;
-      switch (key) {
-        case "Ip":
-          return req.ip;
-        case "Session":
-          return req.session;
-        case "DecoratorFactory":
-          return typeof factory === "function" && factory(data, ctx);
-        case "Next":
-          return next;
-        case "Req":
-        case "Request":
-          return data ? req[data] : req;
-        case "Res":
-        case "Response":
-          return data ? res[data] : res;
-        case "Query":
-          return data ? req.query[data] : req.query;
-        case "Body":
-          return data ? req.body[data] : req.body;
-        case "Param":
-          return data ? req.params[data] : req.params;
-        case "Headers":
-          return data ? req.headers[data] : req.headers;
-        default:
-          return null;
-      }
-    });
+    return Promise.all(
+      params.map(async (param) => {
+        const { key, data, factory, pipes } = param;
+        let value;
+        switch (key) {
+          case "Ip":
+            value = req.ip;
+            break;
+          case "Session":
+            value = req.session;
+            break;
+          case "DecoratorFactory":
+            value = typeof factory === "function" && factory(data, host);
+            break;
+          case "Next":
+            value = Next;
+            break;
+          case "Req":
+          case "Request":
+            value = data ? req[data] : req;
+            break;
+          case "Res":
+          case "Response":
+            value = data ? res[data] : res;
+            break;
+          case "Query":
+            value = data ? req.query[data] : req.query;
+            break;
+          case "Body":
+            value = data ? req.body[data] : req.body;
+            break;
+          case "Param":
+            value = data ? req.params[data] : req.params;
+            break;
+          case "Headers":
+            value = data ? req.headers[data] : req.headers;
+            break;
+          default:
+            value = null;
+            break;
+        }
+        for (let pipe of pipes) {
+          const pipeInstance = this.getPipeInstance(pipe);
+          value = await pipeInstance.transform(value);
+          return value;
+        }
+      })
+    );
   }
 
   getResponseMetaData(controller, methodName) {
@@ -404,8 +426,8 @@ export class NestApplication {
       );
   }
 
-  init() {
-    const Constollers = Reflect.getMetadata("controllers", this.module) || [];
+  initController(module) {
+    const Constollers = Reflect.getMetadata("controllers", module) || [];
 
     for (let Controller of Constollers) {
       const dependencies = this.resolveDependencies(Controller);
@@ -447,24 +469,32 @@ export class NestApplication {
         // 注册Express路由: this.app.get("/", () => {});
         this.app[httpMehtod.toLowerCase()](
           routerPath,
-          (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-            const host = {
+          async (
+            req: ExpressRequest,
+            res: ExpressResponse,
+            next: NextFunction
+          ) => {
+            const host: ArgumentsHost = {
               switchToHttp: () => ({
-                getRequest: () => req,
-                getResponse: () => res,
-                getNext: () => next,
+                getRequest: <T>() => req as T,
+                getResponse: <T>() => res as T,
+                getNext: <T>() => next as T,
               }),
             };
             try {
               // 解析路由方法的参数
-              const methodParams = this.resolveParams(
+              const methodParams = await this.resolveParams(
                 controllerPrototype,
                 methodName,
                 req,
                 res,
-                next
+                next,
+                host
               );
-              const result = method.call(controllerInstance, ...methodParams);
+              let result = await method.call(
+                controllerInstance,
+                ...methodParams
+              );
               // 如果返回的值有url也同样执行重定向
               if (result && result?.url) {
                 res.redirect(result.statusCode || 302, result.url);
@@ -486,6 +516,9 @@ export class NestApplication {
                 methodName
               );
               if (!responseMetaData || responseMetaData?.data?.passthrough) {
+                if (typeof result === "number") {
+                  result = result + "";
+                }
                 res.send(result);
                 return result;
               }
@@ -511,7 +544,7 @@ export class NestApplication {
     // 初始化全局过滤器
     await this.initGlobalFilters();
     // 初始化controller路由
-    await this.init();
+    await this.initController(this.module);
     this.app.listen(port, () => {
       Logger.log(
         `Application is running on http://localhost:${port}`,

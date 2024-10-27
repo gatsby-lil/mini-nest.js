@@ -1,7 +1,7 @@
 import "reflect-metadata";
 
 export function createParamDecorator(keyOrFunction: string | Function) {
-  return function (data?: any) {
+  return function (data?: any, ...pipes: any[]) {
     return function (target: object, properKey: string, paramIndex: number) {
       const existingParam =
         Reflect.getMetadata("params", target, properKey) || [];
@@ -11,12 +11,14 @@ export function createParamDecorator(keyOrFunction: string | Function) {
           factory: keyOrFunction,
           data,
           paramIndex,
+          pipes,
         };
       } else {
         existingParam[paramIndex] = {
           data,
           key: keyOrFunction,
           paramIndex,
+          pipes,
         };
       }
 

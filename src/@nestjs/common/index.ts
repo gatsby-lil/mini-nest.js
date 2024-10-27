@@ -10,3 +10,11 @@ export * from "./decorator/use-filters.decorator";
 
 // 异常过滤器
 export * from "./exceptions-filters/httpException";
+// 管道
+export * from "./pipes/parse-int.pipe";
+export * from "./pipes/parse-float.pipe";
+export * from "./pipes/parse-bool.pipe";
+export * from "./pipes/parse-array.pipe";
+export * from "./pipes/parse-uuid.pipe";
+export * from "./pipes/default-value.pipe";
+export * from "./pipes/parse-enum.pipe";

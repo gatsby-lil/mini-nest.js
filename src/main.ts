@@ -10,7 +10,9 @@ import { NestFactory } from "@nestjs/core";
 // 调试 midleware
 // import { AppModule } from "./demo/middleware-demo/app.module";
 // 调试 Exceptionfilters
-import { AppModule } from "./demo/filters-demo/app.module";
+// import { AppModule } from "./demo/filters-demo/app.module";
+// 调试Pipe
+import { AppModule } from "./demo/pipe-demo/app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
