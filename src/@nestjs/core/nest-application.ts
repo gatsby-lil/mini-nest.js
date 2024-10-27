@@ -7,7 +7,11 @@ import express, {
   NextFunction,
 } from "express";
 import { Logger } from "./logger";
-import { DESIGN_PARAMTYPES, INJECTED_TOKENS } from "@nestjs/constant";
+import {
+  APP_FILTER,
+  DESIGN_PARAMTYPES,
+  INJECTED_TOKENS,
+} from "@nestjs/constant";
 import { defineModule } from "@nestjs/common";
 import { ExceptionFilter, RequestMethod } from "@nestjs/types";
 import { GlobalHttpExecptionFilter } from "@nestjs/common/exceptions-filters/httpExceptionFilter";
@@ -34,7 +38,27 @@ export class NestApplication {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
   }
 
-  private async initGlobalFilters() {}
+  private async initGlobalFilters() {
+    const providers = Reflect.getMetadata("providers", this.module) || [];
+    for (const provider of providers) {
+      if (provider.provide === APP_FILTER) {
+        const providerInstance = this.getProviderByToken(
+          APP_FILTER,
+          this.module
+        );
+        this.useGlobalFilters(providerInstance);
+        break;
+      }
+    }
+  }
+
+  useGlobalFilters(...filters) {
+    defineModule(
+      filters.filter((filter) => filter instanceof Function),
+      this.module
+    );
+    this.globalHttpExceptionFilters.push(...filters);
+  }
 
   private getFilterInstance(filter) {
     if (filter instanceof Function) {
