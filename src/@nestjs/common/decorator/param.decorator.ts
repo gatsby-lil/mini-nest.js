@@ -1,3 +1,4 @@
+import { DESIGN_PARAMTYPES } from "@nestjs/constant";
 import "reflect-metadata";
 
 export function createParamDecorator(keyOrFunction: string | Function) {
@@ -5,6 +6,10 @@ export function createParamDecorator(keyOrFunction: string | Function) {
     return function (target: object, properKey: string, paramIndex: number) {
       const existingParam =
         Reflect.getMetadata("params", target, properKey) || [];
+      // 从原型的方法上获取参数类型
+      const constructorParams =
+        Reflect.getMetadata(DESIGN_PARAMTYPES, target, properKey) || [];
+      const metatype = constructorParams[paramIndex];
       if (keyOrFunction instanceof Function) {
         existingParam[paramIndex] = {
           key: "DecoratorFactory",
@@ -12,6 +17,7 @@ export function createParamDecorator(keyOrFunction: string | Function) {
           data,
           paramIndex,
           pipes,
+          metatype,
         };
       } else {
         existingParam[paramIndex] = {
@@ -19,9 +25,9 @@ export function createParamDecorator(keyOrFunction: string | Function) {
           key: keyOrFunction,
           paramIndex,
           pipes,
+          metatype,
         };
       }
-
       Reflect.defineMetadata("params", existingParam, target, properKey);
     };
   };

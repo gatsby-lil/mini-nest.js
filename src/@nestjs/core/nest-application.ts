@@ -9,12 +9,17 @@ import express, {
 import { Logger } from "./logger";
 import {
   APP_FILTER,
+  APP_PIPE,
   DESIGN_PARAMTYPES,
   INJECTED_TOKENS,
 } from "@nestjs/constant";
-import { defineModule, Next } from "@nestjs/common";
-import { ArgumentsHost, ExceptionFilter, RequestMethod } from "@nestjs/types";
-import { GlobalHttpExecptionFilter } from "@nestjs/common/exceptions-filters/httpExceptionFilter";
+import { defineModule, GlobalHttpExecptionFilter } from "@nestjs/common";
+import {
+  ArgumentsHost,
+  ExceptionFilter,
+  RequestMethod,
+  PipeTransform,
+} from "@nestjs/types";
 
 export class NestApplication {
   private readonly app: Express = express();
@@ -33,9 +38,26 @@ export class NestApplication {
     new GlobalHttpExecptionFilter();
   // 存放对应的异常过滤器
   private readonly globalHttpExceptionFilters: ExceptionFilter[] = [];
+  // 存放管道
+  private readonly globalPipes: PipeTransform[] = [];
 
   constructor(private readonly module: any) {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
+  }
+
+  private initGlobalPipes() {
+    const providers = Reflect.getMetadata("providers", this.module) || [];
+    for (const provider of providers) {
+      if (provider.provide === APP_PIPE) {
+        const providerInstance = this.getProviderByToken(APP_PIPE, this.module);
+        this.useGlobalPipes(providerInstance);
+        break;
+      }
+    }
+  }
+
+  useGlobalPipes(...pipes: PipeTransform[]) {
+    this.globalPipes.push(...pipes);
   }
 
   private getPipeInstance(pipe) {
@@ -92,12 +114,10 @@ export class NestApplication {
       const filterInstance = this.getFilterInstance(filters);
       const target = filters.constructor;
       const exceptions = Reflect.getMetadata("catch", target) || [];
-      console.log(target, exceptions, "target");
       if (
         exceptions.length === 0 ||
         exceptions.some((exception) => error instanceof exception)
       ) {
-        console.log(filterInstance, "filterInstance");
         filterInstance.catch(error, host);
         break;
       }
@@ -361,13 +381,14 @@ export class NestApplication {
     req: ExpressRequest,
     res: ExpressResponse,
     next: NextFunction,
-    host: ArgumentsHost
+    host: ArgumentsHost,
+    pipes
   ) {
     const params =
       Reflect.getMetadata("params", controllerPrototype, methodName) || [];
     return Promise.all(
       params.map(async (param) => {
-        const { key, data, factory, pipes } = param;
+        const { key, data, factory, pipes: paramsPipes, metatype } = param;
         let value;
         switch (key) {
           case "Ip":
@@ -380,7 +401,7 @@ export class NestApplication {
             value = typeof factory === "function" && factory(data, host);
             break;
           case "Next":
-            value = Next;
+            value = next;
             break;
           case "Req":
           case "Request":
@@ -406,11 +427,17 @@ export class NestApplication {
             value = null;
             break;
         }
-        for (let pipe of pipes) {
+        for (let pipe of [...this.globalPipes, ...pipes, ...paramsPipes]) {
           const pipeInstance = this.getPipeInstance(pipe);
-          value = await pipeInstance.transform(value);
-          return value;
+          const type =
+            key === "DecoratorFactory" ? "custom" : key.toLowerCase();
+          value = await pipeInstance.transform(value, {
+            type,
+            data,
+            metatype,
+          });
         }
+        return value;
       })
     );
   }
@@ -444,7 +471,10 @@ export class NestApplication {
       const controllerFilters =
         Reflect.getMetadata("filters", Controller) || [];
       // 关联到模块可以注入依赖
-      defineModule(controllerFilters, this.module);
+      defineModule(controllerFilters, module);
+      // 绑定在控制器上的管道
+      const controllerPipes = Reflect.getMetadata("pipes", Controller) || [];
+      defineModule(controllerPipes, module);
       for (let methodName of prototypeMethods) {
         const method = controllerPrototype[methodName];
         const requestPath = Reflect.getMetadata("path", method);
@@ -460,7 +490,11 @@ export class NestApplication {
         // 保存在方法上的过滤器
         const methodFilters = Reflect.getMetadata("filters", method) || [];
         // 关联到模块可以注入依赖
-        defineModule(methodFilters, this.module);
+        defineModule(methodFilters, module);
+        // 保存在方法上的管道
+        const methodPipes = Reflect.getMetadata("pipes", method) || [];
+        const pipes = [...controllerPipes, ...methodPipes];
+        defineModule(methodPipes, module);
         if (!httpMehtod) {
           continue;
         }
@@ -489,7 +523,8 @@ export class NestApplication {
                 req,
                 res,
                 next,
-                host
+                host,
+                pipes
               );
               let result = await method.call(
                 controllerInstance,
@@ -543,6 +578,8 @@ export class NestApplication {
     await this.initMiddlewares();
     // 初始化全局过滤器
     await this.initGlobalFilters();
+    // 初始化全局管道
+    await this.initGlobalPipes();
     // 初始化controller路由
     await this.initController(this.module);
     this.app.listen(port, () => {

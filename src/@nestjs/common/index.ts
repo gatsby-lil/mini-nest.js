@@ -7,9 +7,11 @@ export * from "./decorator/inject.decorator";
 export * from "./decorator/Injectable.decorator";
 export * from "./decorator/catch.decorator";
 export * from "./decorator/use-filters.decorator";
+export * from "./decorator/use-pipes.decorator";
 
 // 异常过滤器
 export * from "./exceptions-filters/httpException";
+export * from "./exceptions-filters/httpExceptionFilter";
 // 管道
 export * from "./pipes/parse-int.pipe";
 export * from "./pipes/parse-float.pipe";
