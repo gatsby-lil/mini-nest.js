@@ -8,6 +8,8 @@ export * from "./decorator/Injectable.decorator";
 export * from "./decorator/catch.decorator";
 export * from "./decorator/use-filters.decorator";
 export * from "./decorator/use-pipes.decorator";
+export * from "./decorator/use-guards.decorator";
+export * from "./decorator/set-metadata.decorator";
 
 // 异常过滤器
 export * from "./exceptions-filters/httpException";
