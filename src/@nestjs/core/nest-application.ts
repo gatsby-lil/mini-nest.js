@@ -6,20 +6,29 @@ import express, {
   Response as ExpressResponse,
   NextFunction,
 } from "express";
-import { Logger } from "./logger";
 import {
   APP_FILTER,
+  APP_GUARD,
   APP_PIPE,
   DESIGN_PARAMTYPES,
   INJECTED_TOKENS,
 } from "@nestjs/constant";
-import { defineModule, GlobalHttpExecptionFilter } from "@nestjs/common";
+import {
+  defineModule,
+  ForbiddenException,
+  GlobalHttpExecptionFilter,
+} from "@nestjs/common";
 import {
   ArgumentsHost,
   ExceptionFilter,
   RequestMethod,
   PipeTransform,
+  ExecutionContext,
+  CanActivate,
 } from "@nestjs/types";
+import { Logger } from "./logger";
+import { Reflector } from "./reflector";
+import { FORBODDEN_RESOURCE } from "@nestjs/constant/common";
 
 export class NestApplication {
   private readonly app: Express = express();
@@ -40,9 +49,44 @@ export class NestApplication {
   private readonly globalHttpExceptionFilters: ExceptionFilter[] = [];
   // 存放管道
   private readonly globalPipes: PipeTransform[] = [];
+  // 存放守卫
+  private readonly globalGuards: CanActivate[] = [];
 
   constructor(private readonly module: any) {
     this.app.use(express.json()); //用来把JSON格式的请求体对象放在req.body上
+  }
+
+  private initGlobalGuards() {
+    const providers = Reflect.getMetadata("providers", this.module) || [];
+    for (const provider of providers) {
+      if (provider?.provide === APP_GUARD) {
+        const providerInstance = this.getProviderByToken(APP_PIPE, this.module);
+        this.useGlobalGuards(providerInstance);
+        break;
+      }
+    }
+  }
+
+  useGlobalGuards(...guards) {
+    this.globalGuards.push(...guards);
+  }
+
+  private getGuardInstance(guard) {
+    if (typeof guard === "function") {
+      const dependencies = this.resolveDependencies(guard);
+      return new guard(...dependencies);
+    }
+    return guard;
+  }
+
+  async callGuards(guards: CanActivate[], context: ExecutionContext) {
+    for (const guard of guards) {
+      const guardInstance = this.getGuardInstance(guard);
+      const canActivate = await guardInstance.canActivate(context);
+      if (!canActivate) {
+        throw new ForbiddenException(FORBODDEN_RESOURCE);
+      }
+    }
   }
 
   private initGlobalPipes() {
@@ -224,6 +268,8 @@ export class NestApplication {
   }
 
   private async initProviders() {
+    // 配置内部默认提供者
+    this.addDefaultProvide();
     // 获取模块导入的元数据
     const imports = Reflect.getMetadata("imports", this.module) || [];
     // 遍历所有的导入模块
@@ -264,6 +310,10 @@ export class NestApplication {
     moduleProviders.forEach((provider) =>
       this.addProvider(provider, this.module)
     );
+  }
+
+  addDefaultProvide() {
+    this.addProvider(Reflector, this.module, true);
   }
 
   /**
@@ -467,6 +517,7 @@ export class NestApplication {
         Object.getOwnPropertyNames(controllerPrototype).filter(
           (n) => n != "constructor"
         ) || [];
+
       // 绑定在控制器上的过滤器
       const controllerFilters =
         Reflect.getMetadata("filters", Controller) || [];
@@ -475,6 +526,10 @@ export class NestApplication {
       // 绑定在控制器上的管道
       const controllerPipes = Reflect.getMetadata("pipes", Controller) || [];
       defineModule(controllerPipes, module);
+      // 绑定在控制器上的守卫
+      const controllerGuards = Reflect.getMetadata("guards", Controller) || [];
+      defineModule(controllerGuards, module);
+
       for (let methodName of prototypeMethods) {
         const method = controllerPrototype[methodName];
         const requestPath = Reflect.getMetadata("path", method);
@@ -487,14 +542,22 @@ export class NestApplication {
         );
         // 获取请求码
         const httpCode = Reflect.getMetadata("httpCode", method);
-        // 保存在方法上的过滤器
+        // 绑定在方法上的过滤器
         const methodFilters = Reflect.getMetadata("filters", method) || [];
         // 关联到模块可以注入依赖
         defineModule(methodFilters, module);
-        // 保存在方法上的管道
+        // 绑定在方法上的管道
         const methodPipes = Reflect.getMetadata("pipes", method) || [];
         const pipes = [...controllerPipes, ...methodPipes];
         defineModule(methodPipes, module);
+        // 绑定在方法上的守卫
+        const methodGuards = Reflect.getMetadata("guards", method) || [];
+        defineModule(methodGuards, module);
+        const guards = [
+          ...this.globalGuards,
+          ...controllerGuards,
+          ...methodGuards,
+        ];
         if (!httpMehtod) {
           continue;
         }
@@ -515,7 +578,14 @@ export class NestApplication {
                 getNext: <T>() => next as T,
               }),
             };
+            const context: ExecutionContext = {
+              ...host,
+              getClass: () => Controller,
+              getHandler: () => method,
+            };
             try {
+              // 执行守卫
+              await this.callGuards(guards, context);
               // 解析路由方法的参数
               const methodParams = await this.resolveParams(
                 controllerPrototype,
@@ -571,15 +641,18 @@ export class NestApplication {
     }
   }
 
+  // 请求=>中间件=>守卫=>管道=>拦截器前=>路由处理程序=>拦截器后=>异常过滤器=>响应
   async listen(port: number) {
     // 初始化provide
     await this.initProviders();
     // 初始化中间件
     await this.initMiddlewares();
-    // 初始化全局过滤器
+    // 初始化过滤器
     await this.initGlobalFilters();
-    // 初始化全局管道
+    // 初始化管道
     await this.initGlobalPipes();
+    // 初始化守卫
+    await this.initGlobalGuards();
     // 初始化controller路由
     await this.initController(this.module);
     this.app.listen(port, () => {

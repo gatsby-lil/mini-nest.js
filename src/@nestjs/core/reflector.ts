@@ -6,5 +6,10 @@ export class Reflector {
       ? Reflect.getMetadata(metadataKey, target, key)
       : Reflect.getMetadata(metadataKey, target);
   }
-  static createDecorator() {}
+  static createDecorator() {
+    function decoratorFactory(metadataValue) {
+      return setMetaData(decoratorFactory, metadataValue);
+    }
+    return decoratorFactory;
+  }
 }
