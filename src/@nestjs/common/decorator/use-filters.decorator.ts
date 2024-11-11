@@ -6,10 +6,13 @@ export function UseFilters(...filters: any[]) {
     properKey?: string | symbol,
     descriptor?: PropertyDescriptor
   ) {
+    const existingFilters =
+      Reflect.getMetadata(descriptor.value || target, "filters") || [];
+    const concatFilters = [...existingFilters, ...filters];
     if (descriptor) {
-      Reflect.defineMetadata("filters", filters, descriptor.value);
+      Reflect.defineMetadata("filters", concatFilters, descriptor.value);
     } else {
-      Reflect.defineMetadata("filters", filters, target);
+      Reflect.defineMetadata("filters", concatFilters, target);
     }
   };
 }

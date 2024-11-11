@@ -14,7 +14,9 @@ import { NestFactory } from "@nestjs/core";
 // 调试Pipe
 // import { AppModule } from "./demo/pipe-demo/app.module";
 // 调试guard
-import { AppModule } from "./demo/guard-demo/app.module";
+// import { AppModule } from "./demo/guard-demo/app.module";
+// 调试拦截器
+import { AppModule } from "./demo/interceptor-demo/app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

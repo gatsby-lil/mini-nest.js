@@ -6,10 +6,13 @@ export function UsePipes(...pipes: PipeTransform[]) {
     properKey?: string | Symbol,
     descriptor?: PropertyDescriptor
   ) {
+    const existingPipes =
+      Reflect.getMetadata(descriptor.value || target, "pipes") || [];
+    const concatPipes = [...existingPipes, ...pipes];
     if (descriptor) {
-      Reflect.defineMetadata("pipes", pipes, descriptor.value);
+      Reflect.defineMetadata("pipes", concatPipes, descriptor.value);
     } else {
-      Reflect.defineMetadata("pipes", pipes, target);
+      Reflect.defineMetadata("pipes", concatPipes, target);
     }
   };
 }
